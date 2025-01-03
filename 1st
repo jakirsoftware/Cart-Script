@@ -1,0 +1,105 @@
+Product holder list with image to Cart Plus, Minus, Submit button from sheet html & script.gs
+------------------------------------------------
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('index').setTitle('Shopping Cart');
+}
+
+function getProducts() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Products');
+  const data = sheet.getDataRange().getValues();
+  data.shift(); // Remove header
+  return data.map(([id, name, image, price]) => ({ id, name, image, price }));
+}
+
+function submitCart(cart) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Cart');
+  cart.forEach(item => {
+    sheet.appendRow([item.id, item.name, item.quantity, item.totalPrice]);
+  });
+  return 'Cart submitted successfully!';
+}
+-----------------------------------------
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Shopping Cart</title>
+  <style>
+    .product {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin: 10px;
+      display: flex;
+      align-items: center;
+    }
+    .product img {
+      width: 100px;
+      height: 100px;
+      margin-right: 10px;
+    }
+    .product button {
+      margin: 0 5px;
+    }
+  </style>
+  <script>
+    let cart = [];
+
+    function loadProducts() {
+      google.script.run.withSuccessHandler(displayProducts).getProducts();
+    }
+
+    function displayProducts(products) {
+      const productList = document.getElementById('product-list');
+      productList.innerHTML = '';
+
+      products.forEach(product => {
+        const productDiv = document.createElement('div');
+        productDiv.className = 'product';
+
+        productDiv.innerHTML = `
+          <img src="${product.image}" alt="${product.name}" />
+          <div>
+            <h3>${product.name}</h3>
+            <p>Price: $${product.price}</p>
+            <button onclick="updateCart('${product.id}', '${product.name}', ${product.price}, -1)">-</button>
+            <span id="quantity-${product.id}">0</span>
+            <button onclick="updateCart('${product.id}', '${product.name}', ${product.price}, 1)">+</button>
+          </div>
+        `;
+        productList.appendChild(productDiv);
+      });
+    }
+
+    function updateCart(id, name, price, change) {
+      const existingItem = cart.find(item => item.id === id);
+      if (existingItem) {
+        existingItem.quantity += change;
+        if (existingItem.quantity <= 0) {
+          cart = cart.filter(item => item.id !== id);
+        } else {
+          existingItem.totalPrice = existingItem.quantity * price;
+        }
+      } else if (change > 0) {
+        cart.push({ id, name, quantity: change, totalPrice: change * price });
+      }
+
+      document.getElementById(`quantity-${id}`).textContent =
+        cart.find(item => item.id === id)?.quantity || 0;
+    }
+
+    function submitCart() {
+      google.script.run
+        .withSuccessHandler(alert)
+        .submitCart(cart);
+      cart = [];
+      loadProducts();
+    }
+  </script>
+</head>
+<body onload="loadProducts()">
+  <h1>Shopping Cart</h1>
+  <div id="product-list"></div>
+  <button onclick="submitCart()">Submit Cart</button>
+</body>
+</html>
+Product ID	Product Name	Image URL	Price
+Product ID	Product Name	Quantity	Total Price
