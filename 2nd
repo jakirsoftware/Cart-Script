@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    .cart-container {
+      display: flex;
+      flex-wrap: wrap;
+    }
+    .product-card {
+      margin: 10px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      width: 200px;
+      text-align: center;
+    }
+    .product-card img {
+      width: 100px;
+      height: 100px;
+    }
+    .cart-item {
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+  <h1>Shopping Cart</h1>
+  <div class="cart-container" id="productList"></div>
+  
+  <div id="cartDetails"></div>
+  <br>
+  <button onclick="submitCart()">Submit Order</button>
+
+  <script>
+    let cart = [];
+
+    // Fetch product data from Google Sheet
+    function loadProducts() {
+      google.script.run.withSuccessHandler(displayProducts).getProducts();
+    }
+
+    // Display products
+    function displayProducts(products) {
+      const productList = document.getElementById('productList');
+      productList.innerHTML = '';
+      products.forEach(product => {
+        const productCard = document.createElement('div');
+        productCard.classList.add('product-card');
+        productCard.innerHTML = `
+          <img src="${product.image}" alt="${product.name}" />
+          <h3>${product.name}</h3>
+          <p>Price: ${product.price} Tk.</p>
+          <button onclick="addToCart(${product.id}, '${product.name}', ${product.price})">Add to Cart</button>
+        `;
+        productList.appendChild(productCard);
+      });
+    }
+
+    // Add product to cart
+    function addToCart(id, name, price) {
+      const existingItem = cart.find(item => item.id === id);
+      if (existingItem) {
+        existingItem.quantity++;
+        existingItem.total = existingItem.quantity * price;
+      } else {
+        cart.push({ id, name, quantity: 1, price, total: price });
+      }
+      updateCart();
+    }
+
+    // Update cart display
+    function updateCart() {
+      const cartDetails = document.getElementById('cartDetails');
+      cartDetails.innerHTML = '<h2>Your Cart</h2>';
+      let totalAmount = 0;
+
+      cart.forEach(item => {
+        totalAmount += item.total;
+        cartDetails.innerHTML += `
+          <div class="cart-item">
+            <span>${item.name} - ${item.price} Tk.</span>
+            <button onclick="changeQuantity(${item.id}, -1)">-</button>
+            <span>${item.quantity}</span>
+            <button onclick="changeQuantity(${item.id}, 1)">+</button>
+            <span>Total: ${item.total} Tk.</span>
+          </div>
+        `;
+      });
+      cartDetails.innerHTML += `<h3>Total: ${totalAmount} Tk.</h3>`;
+    }
+
+    // Change item quantity
+    function changeQuantity(id, change) {
+      const item = cart.find(item => item.id === id);
+      if (item) {
+        item.quantity += change;
+        if (item.quantity <= 0) {
+          cart = cart.filter(item => item.id !== id);
+        } else {
+          item.total = item.quantity * item.price;
+        }
+        updateCart();
+      }
+    }
+
+    // Submit the cart data
+    function submitCart() {
+      google.script.run.withSuccessHandler(function(invoiceId) {
+        alert('Order submitted successfully! Invoice ID: ' + invoiceId);
+      }).submitOrder(cart);
+    }
+
+    // Load products when the page is ready
+    window.onload = loadProducts;
+  </script>
+</body>
+</html>
+------------------------------------------------------------------
+// Google Apps Script to get product data from the Google Sheet
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('index');
+}
+
+function getProducts() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Products'); // Ensure your product data is in a sheet named 'Products'
+  const data = sheet.getDataRange().getValues();
+  return data.map(row => ({
+    id: row[0],         // Product ID
+    name: row[1],       // Product Name
+    image: row[2],      // Image URL
+    price: row[3]       // Product Price
+  }));
+}
+
+function submitOrder(cartItems) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Orders'); // Orders sheet to store cart details
+  const invoiceId = 'INV-' + new Date().getTime();
+  
+  cartItems.forEach(item => {
+    sheet.appendRow([invoiceId, item.id, item.name, item.quantity, item.price, item.total]);
+  });
+
+  return invoiceId;
+}
+----------------------------------------------------------------
+
+To create a shopping cart with a product holder list, image, and functionality to add or remove items (plus and minus), and view the total amount with the invoice ID, here's a sample implementation using Google Apps Script and HTML.
+
+Google Apps Script (script.gs)
+javascript
+Copy code
+// Google Apps Script to get product data from the Google Sheet
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('Index');
+}
+
+function getProducts() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Products'); // Ensure your product data is in a sheet named 'Products'
+  const data = sheet.getDataRange().getValues();
+  return data.map(row => ({
+    id: row[0],         // Product ID
+    name: row[1],       // Product Name
+    image: row[2],      // Image URL
+    price: row[3]       // Product Price
+  }));
+}
+
+function submitOrder(cartItems) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Orders'); // Orders sheet to store cart details
+  const invoiceId = 'INV-' + new Date().getTime();
+  
+  cartItems.forEach(item => {
+    sheet.appendRow([invoiceId, item.id, item.name, item.quantity, item.price, item.total]);
+  });
+
+  return invoiceId;
+}
+HTML (Index.html)
+html
+Copy code
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    .cart-container {
+      display: flex;
+      flex-wrap: wrap;
+    }
+    .product-card {
+      margin: 10px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      width: 200px;
+      text-align: center;
+    }
+    .product-card img {
+      width: 100px;
+      height: 100px;
+    }
+    .cart-item {
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+  <h1>Shopping Cart</h1>
+  <div class="cart-container" id="productList"></div>
+  
+  <div id="cartDetails"></div>
+  <br>
+  <button onclick="submitCart()">Submit Order</button>
+
+  <script>
+    let cart = [];
+
+    // Fetch product data from Google Sheet
+    function loadProducts() {
+      google.script.run.withSuccessHandler(displayProducts).getProducts();
+    }
+
+    // Display products
+    function displayProducts(products) {
+      const productList = document.getElementById('productList');
+      productList.innerHTML = '';
+      products.forEach(product => {
+        const productCard = document.createElement('div');
+        productCard.classList.add('product-card');
+        productCard.innerHTML = `
+          <img src="${product.image}" alt="${product.name}" />
+          <h3>${product.name}</h3>
+          <p>Price: $${product.price}</p>
+          <button onclick="addToCart(${product.id}, '${product.name}', ${product.price})">Add to Cart</button>
+        `;
+        productList.appendChild(productCard);
+      });
+    }
+
+    // Add product to cart
+    function addToCart(id, name, price) {
+      const existingItem = cart.find(item => item.id === id);
+      if (existingItem) {
+        existingItem.quantity++;
+        existingItem.total = existingItem.quantity * price;
+      } else {
+        cart.push({ id, name, quantity: 1, price, total: price });
+      }
+      updateCart();
+    }
+
+    // Update cart display
+    function updateCart() {
+      const cartDetails = document.getElementById('cartDetails');
+      cartDetails.innerHTML = '<h2>Your Cart</h2>';
+      let totalAmount = 0;
+
+      cart.forEach(item => {
+        totalAmount += item.total;
+        cartDetails.innerHTML += `
+          <div class="cart-item">
+            <span>${item.name} - $${item.price}</span>
+            <button onclick="changeQuantity(${item.id}, -1)">-</button>
+            <span>${item.quantity}</span>
+            <button onclick="changeQuantity(${item.id}, 1)">+</button>
+            <span>Total: $${item.total}</span>
+          </div>
+        `;
+      });
+
+      cartDetails.innerHTML += `<h3>Total: $${totalAmount}</h3>`;
+    }
+
+    // Change item quantity
+    function changeQuantity(id, change) {
+      const item = cart.find(item => item.id === id);
+      if (item) {
+        item.quantity += change;
+        if (item.quantity <= 0) {
+          cart = cart.filter(item => item.id !== id);
+        } else {
+          item.total = item.quantity * item.price;
+        }
+        updateCart();
+      }
+    }
+
+    // Submit the cart data
+    function submitCart() {
+      google.script.run.withSuccessHandler(function(invoiceId) {
+        alert('Order submitted successfully! Invoice ID: ' + invoiceId);
+      }).submitOrder(cart);
+    }
+
+    // Load products when the page is ready
+    window.onload = loadProducts;
+  </script>
+</body>
+</html>
+---------------------------------------------------------------------------------------------
+Explanation:
+Google Apps Script (script.gs):
+
+doGet() serves the HTML page.
+getProducts() retrieves product data from the Products sheet (ID, name, image URL, price).
+submitOrder() takes the cart items and saves them into the Orders sheet with an invoice ID.
+HTML (Index.html):
+
+Displays products with an image, name, and price.
+Allows users to add items to the cart with a button that dynamically adds items.
+Displays the cart with quantity control (plus and minus buttons) and calculates the total.
+The "Submit Order" button sends the cart data to Google Apps Script, generating an invoice ID.
+-------------------------------------------------------------------
+Product holder list with image to Cart (Plus and Minus) Submit button from sheet html & script.gs Total amount and view invoice ID
